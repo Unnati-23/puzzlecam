@@ -59,6 +59,10 @@ const downloadVideoBtn = document.getElementById("downloadVideoBtn");
 const resetAllBtn = document.getElementById("resetAllBtn");
 const stripCompleteMsg = document.getElementById("stripCompleteMsg");
 const recIndicator = document.getElementById("recIndicator");
+const stripModal = document.getElementById("stripModal");
+const stripPreviewCanvas = document.getElementById("stripPreviewCanvas");
+const stripModalDownload = document.getElementById("stripModalDownload");
+const stripModalClose = document.getElementById("stripModalClose");
 
 // ── Audio engine ──────────────────────────────────────────────────────────────
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -227,6 +231,7 @@ function isStripFull() {
 function showStripComplete() {
   if (stripCompleteMsg) stripCompleteMsg.classList.add("visible");
   updateStripDownloadAvailability();
+  setTimeout(() => showStripModal(), 900);
 }
 
 function hideStripComplete() {
@@ -242,8 +247,8 @@ const STRIP_FILE_BORDER = 24;
 const STRIP_FILE_GAP = 16;
 const STRIP_FILE_BG = "#ffffff";
 
-function downloadPhotoStrip() {
-  if (galleryEntries.length === 0) return;
+function buildStripCanvas() {
+  if (galleryEntries.length === 0) return null;
   const entries = galleryEntries;
   const targetW = entries[0].canvas.width;
   const scaledHeights = entries.map((entry) =>
@@ -254,19 +259,25 @@ function downloadPhotoStrip() {
     scaledHeights.reduce((sum, h) => sum + h, 0) +
     STRIP_FILE_GAP * (entries.length - 1);
   const totalW = targetW + STRIP_FILE_BORDER * 2;
-  const stripCanvas = document.createElement("canvas");
-  stripCanvas.width = totalW;
-  stripCanvas.height = totalH;
-  const stripCtx = stripCanvas.getContext("2d");
-  stripCtx.fillStyle = STRIP_FILE_BG;
-  stripCtx.fillRect(0, 0, totalW, totalH);
+  const sc = document.createElement("canvas");
+  sc.width = totalW;
+  sc.height = totalH;
+  const sCtx = sc.getContext("2d");
+  sCtx.fillStyle = STRIP_FILE_BG;
+  sCtx.fillRect(0, 0, totalW, totalH);
   let cursorY = STRIP_FILE_BORDER;
   entries.forEach((entry, i) => {
     const h = scaledHeights[i];
-    stripCtx.drawImage(entry.canvas, STRIP_FILE_BORDER, cursorY, targetW, h);
+    sCtx.drawImage(entry.canvas, STRIP_FILE_BORDER, cursorY, targetW, h);
     cursorY += h + STRIP_FILE_GAP;
   });
-  stripCanvas.toBlob((blob) => {
+  return sc;
+}
+
+function downloadPhotoStrip() {
+  const sc = buildStripCanvas();
+  if (!sc) return;
+  sc.toBlob((blob) => {
     if (!blob) return;
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -277,6 +288,15 @@ function downloadPhotoStrip() {
     document.body.removeChild(link);
     setTimeout(() => URL.revokeObjectURL(url), 4000);
   }, "image/png");
+}
+
+function showStripModal() {
+  const sc = buildStripCanvas();
+  if (!sc) return;
+  stripPreviewCanvas.width = sc.width;
+  stripPreviewCanvas.height = sc.height;
+  stripPreviewCanvas.getContext("2d").drawImage(sc, 0, 0);
+  stripModal.classList.remove("hidden");
 }
 
 function resetEverything() {
@@ -1182,12 +1202,27 @@ async function boot() {
 loaderRetry.addEventListener("click", () => { boot(); });
 
 if (downloadStripBtn) {
-  downloadStripBtn.addEventListener("click", downloadPhotoStrip);
   updateStripDownloadAvailability();
 }
 
 if (downloadVideoBtn) {
   downloadVideoBtn.addEventListener("click", downloadVideo);
+}
+
+if (downloadStripBtn) {
+  downloadStripBtn.addEventListener("click", showStripModal);
+}
+
+if (stripModalDownload) {
+  stripModalDownload.addEventListener("click", () => {
+    downloadPhotoStrip();
+  });
+}
+
+if (stripModalClose) {
+  stripModalClose.addEventListener("click", () => {
+    stripModal.classList.add("hidden");
+  });
 }
 
 if (resetAllBtn) {

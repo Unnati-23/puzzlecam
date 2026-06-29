@@ -562,13 +562,19 @@ function gaussianNoise(std) {
   return z0 * std;
 }
 
-function applyPhotoboothEffect(imageData) {
+function applyPhotoboothEffect(imageData, bw = false) {
   const d = imageData.data;
   for (let i = 0; i < d.length; i += 4) {
     const noise = gaussianNoise(PHOTOBOOTH_NOISE_STD);
-    d[i]   = Math.max(0, Math.min(255, d[i]   * PHOTOBOOTH_CONTRAST_ALPHA + PHOTOBOOTH_BRIGHTNESS_BETA + noise));
-    d[i+1] = Math.max(0, Math.min(255, d[i+1] * PHOTOBOOTH_CONTRAST_ALPHA + PHOTOBOOTH_BRIGHTNESS_BETA + noise));
-    d[i+2] = Math.max(0, Math.min(255, d[i+2] * PHOTOBOOTH_CONTRAST_ALPHA + PHOTOBOOTH_BRIGHTNESS_BETA + noise));
+    if (bw) {
+      const gray = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+      const v = Math.max(0, Math.min(255, gray * PHOTOBOOTH_CONTRAST_ALPHA + PHOTOBOOTH_BRIGHTNESS_BETA + noise));
+      d[i] = d[i+1] = d[i+2] = v;
+    } else {
+      d[i]   = Math.max(0, Math.min(255, d[i]   * PHOTOBOOTH_CONTRAST_ALPHA + PHOTOBOOTH_BRIGHTNESS_BETA + noise));
+      d[i+1] = Math.max(0, Math.min(255, d[i+1] * PHOTOBOOTH_CONTRAST_ALPHA + PHOTOBOOTH_BRIGHTNESS_BETA + noise));
+      d[i+2] = Math.max(0, Math.min(255, d[i+2] * PHOTOBOOTH_CONTRAST_ALPHA + PHOTOBOOTH_BRIGHTNESS_BETA + noise));
+    }
   }
   return imageData;
 }
@@ -600,11 +606,20 @@ function finishCountdownAndCapture(box) {
   const cropCtx = cropCanvas.getContext("2d");
   cropCtx.drawImage(mirroredFrame, box.x, box.y, box.width, box.height, 0, 0, cropCanvas.width, cropCanvas.height);
 
-  const fullImageData = cropCtx.getImageData(0, 0, cropCanvas.width, cropCanvas.height);
-  applyPhotoboothEffect(fullImageData);
-  cropCtx.putImageData(fullImageData, 0, 0);
+  // color version — saved to strip at the end
+  const colorImageData = cropCtx.getImageData(0, 0, cropCanvas.width, cropCanvas.height);
+  applyPhotoboothEffect(colorImageData, false);
+  const colorCanvas = document.createElement("canvas");
+  colorCanvas.width = cropCanvas.width;
+  colorCanvas.height = cropCanvas.height;
+  colorCanvas.getContext("2d").putImageData(colorImageData, 0, 0);
 
-  puzzle.fullPhotoboothCanvas = cropCanvas;
+  // B&W version — used for puzzle pieces while solving
+  const bwImageData = cropCtx.getImageData(0, 0, cropCanvas.width, cropCanvas.height);
+  applyPhotoboothEffect(bwImageData, true);
+  cropCtx.putImageData(bwImageData, 0, 0);
+
+  puzzle.fullPhotoboothCanvas = colorCanvas;
 
   const tileW = Math.floor(cropCanvas.width / GRID);
   const tileH = Math.floor(cropCanvas.height / GRID);

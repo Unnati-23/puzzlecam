@@ -1280,4 +1280,18 @@ if (resetAllBtn) {
   });
 }
 
+const difficultyControls = document.getElementById("difficultyControls");
+if (difficultyControls) {
+  difficultyControls.addEventListener("click", (ev) => {
+    const btn = ev.target.closest && ev.target.closest(".difficulty-btn");
+    if (!btn) return;
+    document.querySelectorAll(".difficulty-btn").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    const mode = btn.dataset.mode;
+    if (mode === "easy") { GRID = 3; statusText.textContent = "difficulty: easy"; }
+    else if (mode === "medium") { GRID = 4; statusText.textContent = "difficulty: medium"; }
+    else if (mode === "hard") { GRID = 5; statusText.textContent = "difficulty: hard"; }
+  });
+}
+
 boot();
